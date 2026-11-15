@@ -33,11 +33,16 @@ body[data-view=edit] #gallery{display:none}
 .ghead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 #gallery h1{font-size:30px;margin:26px 0 4px;letter-spacing:-.02em}
 .sub{color:var(--mu);margin:0 0 22px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
-.tile{border:1px solid var(--bd);background:var(--sf);color:var(--tx);border-radius:22px;padding:14px;cursor:pointer;display:grid;gap:12px;text-align:left;font:inherit;transition:.15s}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:16px}
+.tile{border:1px solid var(--bd);background:var(--sf);color:var(--tx);border-radius:22px;padding:14px;cursor:pointer;display:grid;gap:12px;text-align:left;font:inherit;transition:.15s;min-width:0;overflow:hidden;align-content:start}
+.tile:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
 .tile:hover{transform:translateY(-3px);border-color:var(--ac);box-shadow:0 12px 30px rgba(15,23,42,.14)}
-.tthumb{height:290px;display:grid;place-items:center;background:repeating-conic-gradient(var(--fi) 0 25%,transparent 0 50%) 0 0/18px 18px;border-radius:14px}
-.tw{position:relative}
+.tthumb{height:290px;min-width:0;overflow:hidden;display:grid;place-items:center;background:repeating-conic-gradient(var(--fi) 0 25%,transparent 0 50%) 0 0/18px 18px;border-radius:14px}
+.tw{position:relative;flex:none}
+.tw>*{pointer-events:none}
+.tn{min-width:0}
+.tn b,.tn span{overflow-wrap:anywhere}
+@media(max-width:480px){.grid{grid-template-columns:1fr 1fr;gap:10px}.tile{padding:10px;border-radius:18px}.tthumb{height:230px}#gallery h1{font-size:26px}}
 .tn b{display:block;font-size:15px}
 .tn span{color:var(--mu);font-size:12px}
 .tn em{font-style:normal;float:right;background:var(--acs);color:var(--ac);font-weight:700;font-size:11px;padding:2px 9px;border-radius:99px}
@@ -482,10 +487,23 @@ function upd(){sync();render();save();snap()}
 const tplState=t=>Object.assign({},CONTENT,DESIGN,t.d,t.c||{},{tpl:t.id});
 function buildGallery(){
  $('#tgrid').innerHTML=TPLS.map((t,i)=>{const st=tplState(t),v=st.orient==='v';
-  return `<button class="tile" data-i="${i}" data-o="${st.orient}" style="--i:${i}"><div class="tthumb"><div class="tw" style="width:${(v?320:508)*.5}px;height:${(v?508:320)*.5}px"><div class="tc" data-i="${i}"></div></div></div><div class="tn"><em>${v?'Vertical':'Horizontal'}</em><b>${esc(t.n)}</b><span>${esc(t.t)}</span></div></button>`}).join('');
- $$('.tc').forEach(el=>{const st=tplState(TPLS[el.dataset.i]);mount(el,st,'front');el.style.transform='scale(.5)'});
+  return `<button class="tile" data-i="${i}" data-o="${st.orient}" aria-label="${esc(t.n)} template, ${v?'vertical':'horizontal'}" style="--i:${i}"><div class="tthumb"><div class="tw"><div class="tc" data-i="${i}"></div></div></div><div class="tn"><em>${v?'Vertical':'Horizontal'}</em><b>${esc(t.n)}</b><span>${esc(t.t)}</span></div></button>`}).join('');
+ $$('.tc').forEach(el=>{const st=tplState(TPLS[el.dataset.i]);mount(el,st,'front')});
+ fitThumbs();
 }
-function show(view){document.body.dataset.view=view;window.scrollTo(0,0);if(view==='edit'){clearTimeout(ht);ht=0;H=[cur()];hi=0;ub();requestAnimationFrame(()=>{sync();render()})}}
+function fitThumbs(){
+ $$('.tile').forEach(t=>{
+  const th=t.querySelector('.tthumb'),w=t.querySelector('.tw'),c=w&&w.firstElementChild,v=t.dataset.o==='v',cw=v?320:508,ch=v?508:320;
+  const aw=th.clientWidth-16,ah=th.clientHeight-16;
+  if(!th||!w||!c||aw<=0||ah<=0)return;
+  const sc=Math.min(aw/cw,ah/ch,.6);
+  w.style.width=cw*sc+'px';w.style.height=ch*sc+'px';c.style.transform=`scale(${sc})`;
+ });
+}
+if(window.ResizeObserver)new ResizeObserver(()=>{if(document.body.dataset.view==='gallery')fitThumbs()}).observe(document.getElementById('tgrid'));
+window.addEventListener('resize',()=>{if(document.body.dataset.view==='gallery')fitThumbs()});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>fitThumbs());
+function show(view){document.body.dataset.view=view;window.scrollTo(0,0);if(view==='gallery')requestAnimationFrame(fitThumbs);if(view==='edit'){clearTimeout(ht);ht=0;H=[cur()];hi=0;ub();requestAnimationFrame(()=>{sync();render()})}}
 function openTpl(i){S=tplState(TPLS[i]);$('#sheet').dataset.side='front';$$('#sideSeg button').forEach(b=>b.classList.toggle('on',b.dataset.side==='front'));$('#lookSel').value=i;show('edit');save()}
 $('#tgrid').addEventListener('click',ev=>{const t=ev.target.closest('.tile');if(t)openTpl(+t.dataset.i)});
 $('#back').onclick=$('#toGal').onclick=()=>show('gallery');
